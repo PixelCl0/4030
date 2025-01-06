@@ -78,10 +78,10 @@
             <fieldset>
                 <legend>Time Input</legend>
                 <label for="start-time">Start Time</label>
-                <input type="time" id="start-time" name="start-time">
+                <input type="datetime-local" id="start-time" name="start-time">
 
                 <label for="end-time">End Time</label>
-                <input type="time" id="end-time" name="end-time">
+                <input type="datetime-local" id="end-time" name="end-time">
 
                 <label for="duration">Duration (HH:MM)</label>
                 <input type="text" id="duration" name="duration" pattern="\d{1,2}:\d{2}" title="Enter duration as HH:MM">
@@ -93,23 +93,21 @@
             <button type="submit">Submit</button>
         </form>
 
-        <hr>
+        <form id="export-form">
+            <h2>Export Tasks</h2>
+            <label for="export-start">Start Date and Time</label>
+            <input type="datetime-local" id="export-start" required>
 
-        <h2>Generate CSV</h2>
-        <form id="csv-form">
-            <label for="csv-start-date">Start Date and Time</label>
-            <input type="datetime-local" id="csv-start-date" name="csv-start-date" required>
+            <label for="export-end">End Date and Time</label>
+            <input type="datetime-local" id="export-end" required>
 
-            <label for="csv-end-date">End Date and Time</label>
-            <input type="datetime-local" id="csv-end-date" name="csv-end-date" required>
-
-            <button type="button" id="generate-csv">Generate CSV</button>
+            <button type="button" id="export-btn">Export to CSV</button>
         </form>
     </div>
 
     <script>
         let startTime;
-        const tasks = [];
+        const taskData = [];
 
         document.getElementById('start-btn').addEventListener('click', function() {
             startTime = new Date();
@@ -138,41 +136,61 @@
                 startTime: document.getElementById('start-time').value,
                 endTime: document.getElementById('end-time').value,
                 duration: document.getElementById('duration').value,
-                timestamp: new Date().toISOString()
             };
 
-            tasks.push(formData);
-            console.log('Form Submitted:', formData);
+            if (!formData.startTime || !formData.endTime) {
+                const now = new Date().toISOString();
+                if (!formData.startTime) formData.startTime = now;
+                if (!formData.endTime) formData.endTime = now;
+            }
+
+            taskData.push(formData);
+            console.log('Task Recorded:', formData);
             alert('Task recorded successfully!');
             this.reset();
         });
 
-        document.getElementById('generate-csv').addEventListener('click', function() {
-            const startDate = new Date(document.getElementById('csv-start-date').value);
-            const endDate = new Date(document.getElementById('csv-end-date').value);
+        document.getElementById('export-btn').addEventListener('click', function() {
+            const exportStart = new Date(document.getElementById('export-start').value);
+            const exportEnd = new Date(document.getElementById('export-end').value);
 
-            const filteredTasks = tasks.filter(task => {
-                const taskDate = new Date(task.timestamp);
-                return taskDate >= startDate && taskDate <= endDate;
-            });
-
-            if (filteredTasks.length === 0) {
-                alert('No tasks found in the specified range.');
+            if (isNaN(exportStart) || isNaN(exportEnd)) {
+                alert('Please provide valid start and end dates.');
                 return;
             }
 
-            let csvContent = 'data:text/csv;charset=utf-8,';
-            csvContent += 'Task Name,Assigned To,RI,Comments,Start Time,End Time,Duration,Timestamp\n';
-            filteredTasks.forEach(task => {
-                csvContent += `${task.taskName},${task.user},${task.ri},"${task.comments}",${task.startTime},${task.endTime},${task.duration},${task.timestamp}\n`;
+            const filteredTasks = taskData.filter(task => {
+                const taskStart = new Date(task.startTime);
+                return taskStart >= exportStart && taskStart <= exportEnd;
             });
 
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement('a');
-            link.setAttribute('href', encodedUri);
-            link.setAttribute('download', 'tasks.csv');
-            document.body.appendChild(link);
+            if (filteredTasks.length === 0) {
+                alert('No tasks found for the selected period.');
+                return;
+            }
 
+            const csvContent = [
+                ['Task Name', 'User', 'RI', 'Comments', 'Start Time', 'End Time', 'Duration'].join(',')
+            ];
+
+            filteredTasks.forEach(task => {
+                csvContent.push([
+                    task.taskName,
+                    task.user,
+                    task.ri,
+                    task.comments,
+                    task.startTime,
+                    task.endTime,
+                    task.duration
+                ].map(value => `"${value}"`).join(','));
+            });
+
+            const blob = new Blob([csvContent.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'tasks.csv';
+            link.style.display = 'none';
+            document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         });
