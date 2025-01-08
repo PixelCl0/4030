@@ -1,10 +1,10 @@
-# 4030
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Work Time Tracker</title>
+    <script src="https://cdn.emailjs.com/dist/email.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -78,10 +78,10 @@
             <fieldset>
                 <legend>Time Input</legend>
                 <label for="start-time">Start Time</label>
-                <input type="datetime-local" id="start-time" name="start-time">
+                <input type="time" id="start-time" name="start-time">
 
                 <label for="end-time">End Time</label>
-                <input type="datetime-local" id="end-time" name="end-time">
+                <input type="time" id="end-time" name="end-time">
 
                 <label for="duration">Duration (HH:MM)</label>
                 <input type="text" id="duration" name="duration" pattern="\d{1,2}:\d{2}" title="Enter duration as HH:MM">
@@ -92,23 +92,14 @@
 
             <button type="submit">Submit</button>
         </form>
-
-        <form id="export-form">
-            <h2>Export Tasks</h2>
-            <label for="export-start">Start Date and Time</label>
-            <input type="datetime-local" id="export-start" required>
-
-            <label for="export-end">End Date and Time</label>
-            <input type="datetime-local" id="export-end" required>
-
-            <button type="button" id="export-btn">Export to CSV</button>
-        </form>
     </div>
 
     <script>
-        let startTime;
-        const taskData = [];
+        (function() {
+            emailjs.init('oxJ_O0CNx5-vHltSs');
+        })();
 
+        let startTime;
         document.getElementById('start-btn').addEventListener('click', function() {
             startTime = new Date();
             document.getElementById('start-btn').disabled = true;
@@ -129,70 +120,26 @@
             event.preventDefault();
 
             const formData = {
-                taskName: document.getElementById('task-name').value,
+                task_name: document.getElementById('task-name').value,
                 user: document.getElementById('user').value,
                 ri: document.getElementById('ri').value,
                 comments: document.getElementById('comments').value,
-                startTime: document.getElementById('start-time').value,
-                endTime: document.getElementById('end-time').value,
+                start_time: document.getElementById('start-time').value,
+                end_time: document.getElementById('end-time').value,
                 duration: document.getElementById('duration').value,
+                timestamp: new Date().toLocaleString(),
             };
 
-            if (!formData.startTime || !formData.endTime) {
-                const now = new Date().toISOString();
-                if (!formData.startTime) formData.startTime = now;
-                if (!formData.endTime) formData.endTime = now;
-            }
+            emailjs.send('Worktime tracker', 'template_41mdyzu', formData)
+                .then(function(response) {
+                    console.log('SUCCESS!', response.status, response.text);
+                    alert('Task recorded successfully and sent via email!');
+                }, function(error) {
+                    console.log('FAILED...', error);
+                    alert('Failed to send task details. Please try again.');
+                });
 
-            taskData.push(formData);
-            console.log('Task Recorded:', formData);
-            alert('Task recorded successfully!');
             this.reset();
-        });
-
-        document.getElementById('export-btn').addEventListener('click', function() {
-            const exportStart = new Date(document.getElementById('export-start').value);
-            const exportEnd = new Date(document.getElementById('export-end').value);
-
-            if (isNaN(exportStart) || isNaN(exportEnd)) {
-                alert('Please provide valid start and end dates.');
-                return;
-            }
-
-            const filteredTasks = taskData.filter(task => {
-                const taskStart = new Date(task.startTime);
-                return taskStart >= exportStart && taskStart <= exportEnd;
-            });
-
-            if (filteredTasks.length === 0) {
-                alert('No tasks found for the selected period.');
-                return;
-            }
-
-            const csvContent = [
-                ['Task Name', 'User', 'RI', 'Comments', 'Start Time', 'End Time', 'Duration'].join(',')
-            ];
-
-            filteredTasks.forEach(task => {
-                csvContent.push([
-                    task.taskName,
-                    task.user,
-                    task.ri,
-                    task.comments,
-                    task.startTime,
-                    task.endTime,
-                    task.duration
-                ].map(value => `"${value}"`).join(','));
-            });
-
-            const blob = new Blob([csvContent.join('\n')], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'tasks.csv';
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
         });
     </script>
 </body>
